@@ -24,6 +24,9 @@ public:
 
     GLFWwindow* getGLFWwindow() const;
 
+    void attachCamera(const std::shared_ptr<Camera>& camera);
+    void processInput();
+
 private:
     void setupCallbacks();
 
@@ -45,9 +48,6 @@ private:
     static inline bool s_firstMouse = true;
 
     static inline std::shared_ptr<Camera> s_camera = nullptr;
-
-public:
-    void attachCamera(const std::shared_ptr<Camera>& camera);
 };
 
 Window::Window(int width, int height, const std::string& title)
@@ -63,7 +63,6 @@ bool Window::init() {
         return false;
     }
 
-    // OpenGL 3.3 Core
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -129,6 +128,19 @@ void Window::attachCamera(const std::shared_ptr<Camera>& camera) {
     s_camera = camera;
 }
 
+void Window::processInput() {
+    if (!s_camera) return;
+    float deltaTime = getDeltaTime();
+    if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS)
+        s_camera->processKeyboard(Camera_Movement::FORWARD, deltaTime);
+    if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS)
+        s_camera->processKeyboard(Camera_Movement::BACKWARD, deltaTime);
+    if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS)
+        s_camera->processKeyboard(Camera_Movement::LEFT, deltaTime);
+    if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS)
+        s_camera->processKeyboard(Camera_Movement::RIGHT, deltaTime);
+}
+
 void Window::setupCallbacks() {
     glfwSetFramebufferSizeCallback(m_window, framebufferSizeCallback);
     glfwSetCursorPosCallback(m_window, mouseCallback);
@@ -149,7 +161,7 @@ void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) {
     }
 
     float xoffset = static_cast<float>(xpos) - s_lastX;
-    float yoffset = s_lastY - static_cast<float>(ypos); // перевёрнутая ось Y
+    float yoffset = s_lastY - static_cast<float>(ypos);
 
     s_lastX = static_cast<float>(xpos);
     s_lastY = static_cast<float>(ypos);

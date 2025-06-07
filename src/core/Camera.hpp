@@ -15,6 +15,8 @@ public:
     Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch);
 
     glm::mat4 getViewMatrix() const;
+    glm::mat4 getProjectionMatrix(float aspect) const;
+
     void processKeyboard(Camera_Movement direction, float deltaTime);
     void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
     void processMouseScroll(float yoffset);
@@ -51,6 +53,10 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
 
 glm::mat4 Camera::getViewMatrix() const {
     return glm::lookAt(m_position, m_position + m_front, m_up);
+}
+
+glm::mat4 Camera::getProjectionMatrix(float aspect) const {
+    return glm::perspective(glm::radians(m_zoom), aspect, 0.1f, 100.0f);
 }
 
 void Camera::processKeyboard(Camera_Movement direction, float deltaTime) {
