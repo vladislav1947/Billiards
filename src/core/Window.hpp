@@ -172,4 +172,4 @@ void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) {
 void Window::scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset) {
     if (s_camera)
         s_camera->processMouseScroll(static_cast<float>(yoffset));
-}
+}   

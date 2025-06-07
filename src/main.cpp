@@ -10,45 +10,53 @@ int main() {
         return -1;
     }
 
-    Shader shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
-
-    // Инициализируем физику: размер стола 2x1 (условно), трение 0.1
-    Physics physics(2.0f, 1.0f, 0.1f);
-
-    Camera camera(
-    glm::vec3(0.0f, 0.0f, 3.0f), // позиция камеры
-    glm::vec3(0.0f, 1.0f, 0.0f), // вектор "вверх" (обычно Y)
-    -90.0f,                      // yaw, обычно -90 чтобы смотреть по -Z
-    0.0f                        // pitch (угол наклона)
+    auto camera = std::make_shared<Camera>(
+        glm::vec3(0.0f, 2.0f, 3.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        -90.0f, -30.0f
     );
+    
+    window.attachCamera(camera);  // Подключить камеру
 
     Renderer renderer;
+    if (!renderer.Init()) {      // Инициализировать рендерер
+        return -1;
+    }
 
-    // Пример инициализации шаров (позиция, радиус, масса)
+    Physics physics(2.0f, 1.0f, 0.1f);
+    
     std::vector<Ball> balls = {
         Ball(glm::vec3(-0.5f, 0.05f, 0.0f), 0.05f, 1.0f),
         Ball(glm::vec3(0.5f, 0.05f, 0.0f), 0.05f, 1.0f)
     };
 
-    // Задаем начальные скорости шаров для теста
     balls[0].velocity = glm::vec3(1.0f, 0.0f, 0.0f);
-    balls[1].velocity = glm::vec3(-1.0f, 0.0f, 0.0f);
+
+    glEnable(GL_DEPTH_TEST);     // Включить тест глубины
 
     while (!window.shouldClose()) {
-        float dt = window.processInput(camera);
+        window.update();         // Правильный метод
+        window.processInput();   // Обработка ввода
 
-        physics.Update(balls, dt);
+        physics.Update(balls, window.getDeltaTime());
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.use();
-        shader.setMat4("view", camera.getViewMatrix());
-        shader.setMat4("projection", camera.getProjectionMatrix(window.getAspect()));
+        // Получить матрицы
+        glm::mat4 view = camera->getViewMatrix();
+        glm::mat4 projection = camera->getProjectionMatrix(window.getAspectRatio());
 
-        renderer.renderBalls(balls, shader);
+        // Рисовать стол
+        renderer.DrawTable(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec2(2.0f, 1.0f), 
+                          glm::vec3(0.0f, 0.8f, 0.0f), view, projection);
+
+        // Рисовать шары
+        for (const auto& ball : balls) {
+            renderer.DrawBall(ball.position, ball.radius, glm::vec3(1.0f, 0.0f, 0.0f), 
+                             view, projection);
+        }
 
         window.swapBuffers();
-        window.pollEvents();
     }
 
     return 0;

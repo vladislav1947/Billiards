@@ -4,7 +4,9 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
+#include <vector>
+#include <cmath>
+#include <iostream>
 #include "Shader.hpp"
 
 class Renderer {
@@ -33,6 +35,7 @@ private:
 
     GLuint quadVAO = 0;
     GLuint quadVBO = 0;
+    GLuint quadEBO = 0;  // Добавить это поле
 
     // Создание геометрии сферы
     void CreateSphere();
@@ -43,9 +46,7 @@ private:
     void Cleanup();
 };
 
-#include <vector>
-#include <cmath>
-#include <iostream>
+// Implementation
 
 Renderer::Renderer() = default;
 
@@ -86,7 +87,6 @@ void Renderer::CreateSphere() {
         }
     }
 
-    bool oddRow = false;
     for (unsigned int y = 0; y < Y_SEGMENTS; ++y) {
         for (unsigned int x = 0; x < X_SEGMENTS; ++x) {
             unsigned int first = y * (X_SEGMENTS + 1) + x;
@@ -138,8 +138,7 @@ void Renderer::CreateQuad() {
 
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
-    GLuint quadEBO;
-    glGenBuffers(1, &quadEBO);
+    glGenBuffers(1, &quadEBO);  // Используем член класса
 
     glBindVertexArray(quadVAO);
 
@@ -194,9 +193,12 @@ void Renderer::Cleanup() {
         glDeleteVertexArrays(1, &sphereVAO);
         glDeleteBuffers(1, &sphereVBO);
         glDeleteBuffers(1, &sphereEBO);
+        sphereVAO = sphereVBO = sphereEBO = 0;
     }
     if (quadVAO) {
         glDeleteVertexArrays(1, &quadVAO);
         glDeleteBuffers(1, &quadVBO);
+        glDeleteBuffers(1, &quadEBO);
+        quadVAO = quadVBO = quadEBO = 0;
     }
 }
