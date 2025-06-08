@@ -2,7 +2,9 @@
 
 #include <glm/glm.hpp>
 #include <vector>
-#include "Ball.hpp"  // Подключаем новый класс Ball
+#include <cmath>
+#include <iostream>
+#include "Ball.hpp"
 
 class Physics {
 public:
@@ -25,9 +27,6 @@ private:
     void HandleWallCollisions(Ball& ball);
     void HandleBallCollisions(Ball& ballA, Ball& ballB);
 };
-
-#include <cmath>
-#include <iostream>
 
 Physics::Physics(float tableWidth, float tableHeight, float friction)
     : tableWidth(tableWidth), tableHeight(tableHeight), friction(friction) {}

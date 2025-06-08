@@ -20,13 +20,15 @@ public:
 
     bool Init();
 
+    void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color,
+              const glm::mat4& view, const glm::mat4& projection);
+
     void DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
                   const glm::mat4& view, const glm::mat4& projection);
 
     void DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                    const glm::mat4& view, const glm::mat4& projection);
 
-    // Теперь с параметром толщины линии
     void DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
                  const glm::mat4& view, const glm::mat4& projection);
 
@@ -36,16 +38,20 @@ public:
     void DrawPocket(const glm::vec3& position, float radius,
                 const glm::mat4& view, const glm::mat4& projection);
 
+    void DrawBox(const glm::vec3& position, const glm::vec3& size, const glm::vec3& color,
+                 const glm::mat4& view, const glm::mat4& projection);
+
     void SetCameraPos(const glm::vec3& pos) { cameraPos = pos; }
 
+    void InitCube();
+
 private:
-
-
     glm::vec3 cameraPos;
     Shader shader;
 
     GLuint sphereVAO = 0, sphereVBO = 0, sphereEBO = 0;
     GLuint quadVAO = 0, quadVBO = 0, quadEBO = 0;
+    GLuint cubeVAO = 0, cubeVBO = 0, cubeEBO = 0;
 
     // Для кия теперь рисуем не линию, а прямоугольник (2 треугольника)
     GLuint cueVAO = 0, cueVBO = 0, cueEBO = 0;
@@ -77,7 +83,40 @@ bool Renderer::Init() {
     CreateQuad();
     CreateCue();
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
     return true;
+}
+
+void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color,
+                        const glm::mat4& view, const glm::mat4& projection) {
+    glUseProgram(simpleShader.ID); // Убедись, что он поддерживает MVP и цвет
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+    simpleShader.setMat4("u_MVP", mvp);
+    simpleShader.setVec3("u_Color", color);
+
+    float vertices[] = {
+        start.x, start.y, start.z,
+        end.x, end.y, end.z
+    };
+
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glDrawArrays(GL_LINES, 0, 2);
+
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
 }
 
 void Renderer::CreateSphere() {
@@ -165,7 +204,6 @@ void Renderer::CreateQuad() {
     glBindVertexArray(0);
 }
 
-// Создаем VAO/VBO/EBO для кия — это будет прямоугольник с 4 вершинами и 6 индексами
 void Renderer::CreateCue() {
     glGenVertexArrays(1, &cueVAO);
     glGenBuffers(1, &cueVBO);
@@ -174,11 +212,10 @@ void Renderer::CreateCue() {
     glBindVertexArray(cueVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, cueVBO);
-    // 4 вершины по 3 float (x,y,z)
-    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    float emptyCue[12] = {}; // 4 вершины * 3 координаты
+    glBufferData(GL_ARRAY_BUFFER, sizeof(emptyCue), emptyCue, GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cueEBO);
-    // 2 треугольника = 6 индексов
     unsigned int indices[] = {0, 1, 2, 2, 3, 0};
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
@@ -205,38 +242,83 @@ void Renderer::DrawWall(const glm::vec3& position, const glm::vec2& size, float 
     glBindVertexArray(0);
 }
 
+void Renderer::DrawBox(const glm::vec3& position, const glm::vec3& size, const glm::vec3& color,
+                       const glm::mat4& view, const glm::mat4& projection)
+{
+    // Построить матрицу модели для параллелепипеда
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, position);
+    model = glm::scale(model, size);
+
+    // Установить шейдер, передать uniform-ы (модель, вид, проекция, цвет)
+    shader.Use();
+    shader.SetMat4("model", model);
+    shader.SetMat4("view", view);
+    shader.SetMat4("projection", projection);
+    shader.SetVec3("color", color);
+
+    // Отрисовать куб (используя заранее подготовленный VAO куба)
+    glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
+
 void Renderer::DrawPocket(const glm::vec3& position, float radius,
                           const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
 
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-    model = glm::scale(model, glm::vec3(radius, 0.1f, radius)); // Немного приплюснутый
+    const int segments = 64;
+    std::vector<glm::vec3> vertices;
 
+    vertices.push_back(position);
+
+    for (int i = 0; i <= segments; ++i) {
+        float angle = glm::two_pi<float>() * i / segments;
+        float x = radius * cos(angle);
+        float z = radius * sin(angle);
+        vertices.emplace_back(position.x + x, position.y, position.z + z);
+    }
+
+    GLuint vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+
+    glm::mat4 model = glm::mat4(1.0f);
     shader.SetMat4("uModel", model);
     shader.SetMat4("uView", view);
     shader.SetMat4("uProjection", projection);
-    shader.SetVec3("uColor", glm::vec3(0.0f, 0.0f, 0.0f)); // Черные лунки
+    shader.SetVec3("uColor", glm::vec3(0.0f, 0.0f, 0.0f));
+    shader.SetVec3("uNormal", glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f)));
 
-    glBindVertexArray(quadVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(vertices.size()));
+
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 }
 
 void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
                         const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
-    
-    // Нормаль для сферы (от центра к поверхности)
+
     glm::vec3 normal = glm::normalize(position - glm::vec3(0.0f, position.y, 0.0f));
-    
-    // Источник света прямо сверху (в середине стола)
-    glm::vec3 lightPos = glm::vec3(0.0f, 2.0f, 0.0f); // 2 единицы над столом
+
+    glm::vec3 lightPos = glm::vec3(0.0f, 2.0f, 0.0f);
     glm::vec3 lightDir = glm::normalize(lightPos - position);
-    
+
     shader.SetVec3("uNormal", normal);
     shader.SetVec3("uLightDir", lightDir);
-    
-    // Остальной код без изменений...
+
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     model = glm::scale(model, glm::vec3(radius));
 
@@ -253,14 +335,11 @@ void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3
 void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                          const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
-    
-    // Для стола нормаль всегда вверх
+
     shader.SetVec3("uNormal", glm::vec3(0.0f, 1.0f, 0.0f));
-    
-    // Направление света сверху вниз (из центра)
+
     shader.SetVec3("uLightDir", glm::vec3(0.0f, -1.0f, 0.0f));
-    
-    // Остальной код без изменений...
+
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     model = glm::scale(model, glm::vec3(size.x, 1.0f, size.y));
 
@@ -274,19 +353,14 @@ void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const
     glBindVertexArray(0);
 }
 
-// Отрисовка кия как прямоугольника с толщиной
 void Renderer::DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
                        const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
 
-    // Вычисляем направление и вектор "вбок" для толщины
     glm::vec3 dir = glm::normalize(to - from);
-    // Вектор "вверх" для построения боковой смещённой линии — можно взять мировой "вверх"
     glm::vec3 up(0.0f, 1.0f, 0.0f);
     glm::vec3 right = glm::normalize(glm::cross(dir, up)) * (thickness * 0.5f);
 
-    // 4 вершины прямоугольника кия
-    // Вершины идут по порядку для индексов {0,1,2} и {2,3,0}
     glm::vec3 vertices[4] = {
         from - right,
         from + right,
@@ -294,7 +368,6 @@ void Renderer::DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::ve
         to - right
     };
 
-    // Загружаем вершины в буфер
     glBindBuffer(GL_ARRAY_BUFFER, cueVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 

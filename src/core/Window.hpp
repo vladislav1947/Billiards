@@ -27,7 +27,6 @@ public:
     void attachCamera(const std::shared_ptr<Camera>& camera);
     void processInput();
 
-    // Добавлен метод для проверки состояния клавиши
     bool isKeyPressed(int key) const;
 
 private:
@@ -52,8 +51,6 @@ private:
 
     static inline std::shared_ptr<Camera> s_camera = nullptr;
 };
-
-// Реализация методов (можно вынести в Window.cpp)
 
 inline Window::Window(int width, int height, const std::string& title)
     : m_width(width), m_height(height), m_title(title) {}
@@ -89,6 +86,9 @@ inline bool Window::init() {
 
     glViewport(0, 0, m_width, m_height);
     setupCallbacks();
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
 
     return true;
 }

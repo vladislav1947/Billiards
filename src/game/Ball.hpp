@@ -31,8 +31,6 @@ private:
     float mass;
 };
 
-// ============ Implementation ============
-
 inline Ball::Ball(const glm::vec3& position, float radius, float mass)
     : position(position), velocity(0.0f), radius(radius), mass(mass) {}
 

@@ -28,8 +28,6 @@ private:
     GLuint compileShader(GLenum type, const std::string& source);
 };
 
-// Implementation
-
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     std::string vertexCode = readFile(vertexPath);
     std::string fragmentCode = readFile(fragmentPath);
