@@ -2,16 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
-
-struct Ball {
-    glm::vec3 position;
-    glm::vec3 velocity;
-    float radius;
-    float mass;
-
-    Ball(const glm::vec3& pos, float r, float m)
-        : position(pos), velocity(0.0f), radius(r), mass(m) {}
-};
+#include "Ball.hpp"  // Подключаем новый класс Ball
 
 class Physics {
 public:
@@ -37,15 +28,15 @@ Physics::Physics(float tableWidth, float tableHeight, float friction)
     : tableWidth(tableWidth), tableHeight(tableHeight), friction(friction) {}
 
 void Physics::Update(std::vector<Ball>& balls, float dt) {
-    // Обновляем позиции шаров по скорости
+    // Обновляем позиции шаров через их собственный метод update
     for (auto& ball : balls) {
-        ball.position += ball.velocity * dt;
+        ball.update(dt);
 
-        // Отражение от границ стола (простая прямоугольная таблица на XZ плоскости)
+        // Отражение от границ стола
         HandleWallCollisions(ball);
 
-        // Трение замедляет шары
-        ApplyFriction(ball, dt);
+        // Трение замедляет шары через метод класса Ball
+        ball.applyFriction(friction, dt);
     }
 
     // Обработка столкновений шаров (каждая пара один раз)
@@ -57,59 +48,84 @@ void Physics::Update(std::vector<Ball>& balls, float dt) {
 }
 
 void Physics::ApplyFriction(Ball& ball, float dt) {
-    // Простое линейное замедление скорости
-    if (glm::length(ball.velocity) > 0.0001f) {
-        glm::vec3 frictionForce = -glm::normalize(ball.velocity) * friction;
-        ball.velocity += frictionForce * dt;
-
-        // Не дать скорости стать отрицательной
-        if (glm::dot(ball.velocity, ball.velocity) < 0.00001f) {
-            ball.velocity = glm::vec3(0.0f);
-        }
-    }
+    // Теперь используем метод класса Ball
+    ball.applyFriction(friction, dt);
 }
 
 void Physics::HandleWallCollisions(Ball& ball) {
-    // Стол ограничен по X и Z (Y — вверх, шар лежит на Y=radius)
-    float left = -tableWidth / 2.0f + ball.radius;
-    float right = tableWidth / 2.0f - ball.radius;
-    float top = tableHeight / 2.0f - ball.radius;
-    float bottom = -tableHeight / 2.0f + ball.radius;
+    // Используем методы класса Ball для получения данных
+    glm::vec3 position = ball.getPosition();
+    glm::vec3 velocity = ball.getVelocity();
+    float radius = ball.getRadius();
 
-    if (ball.position.x < left) {
-        ball.position.x = left;
-        ball.velocity.x = -ball.velocity.x;
-    } else if (ball.position.x > right) {
-        ball.position.x = right;
-        ball.velocity.x = -ball.velocity.x;
+    // Стол ограничен по X и Z (Y — вверх, шар лежит на Y=radius)
+    float left = -tableWidth / 2.0f + radius;
+    float right = tableWidth / 2.0f - radius;
+    float top = tableHeight / 2.0f - radius;
+    float bottom = -tableHeight / 2.0f + radius;
+
+    bool positionChanged = false;
+    bool velocityChanged = false;
+
+    if (position.x < left) {
+        position.x = left;
+        velocity.x = -velocity.x;
+        positionChanged = true;
+        velocityChanged = true;
+    } else if (position.x > right) {
+        position.x = right;
+        velocity.x = -velocity.x;
+        positionChanged = true;
+        velocityChanged = true;
     }
 
-    if (ball.position.z < bottom) {
-        ball.position.z = bottom;
-        ball.velocity.z = -ball.velocity.z;
-    } else if (ball.position.z > top) {
-        ball.position.z = top;
-        ball.velocity.z = -ball.velocity.z;
+    if (position.z < bottom) {
+        position.z = bottom;
+        velocity.z = -velocity.z;
+        positionChanged = true;
+        velocityChanged = true;
+    } else if (position.z > top) {
+        position.z = top;
+        velocity.z = -velocity.z;
+        positionChanged = true;
+        velocityChanged = true;
+    }
+
+    // Обновляем данные шара через методы класса
+    if (positionChanged) {
+        ball.setPosition(position);
+    }
+    if (velocityChanged) {
+        ball.setVelocity(velocity);
     }
 }
 
 void Physics::HandleBallCollisions(Ball& ballA, Ball& ballB) {
-    glm::vec3 delta = ballB.position - ballA.position;
+    glm::vec3 posA = ballA.getPosition();
+    glm::vec3 posB = ballB.getPosition();
+    glm::vec3 velA = ballA.getVelocity();
+    glm::vec3 velB = ballB.getVelocity();
+    
+    glm::vec3 delta = posB - posA;
     float dist = glm::length(delta);
-    float penetration = ballA.radius + ballB.radius - dist;
+    float penetration = ballA.getRadius() + ballB.getRadius() - dist;
 
     if (penetration > 0.0f && dist > 0.0f) {
         // Раздвигаем шары, чтобы не пересекались
         glm::vec3 collisionNormal = delta / dist;
 
-        float totalMass = ballA.mass + ballB.mass;
+        float totalMass = ballA.getMass() + ballB.getMass();
         float correction = penetration / 2.0f;
 
-        ballA.position -= collisionNormal * correction * (ballB.mass / totalMass);
-        ballB.position += collisionNormal * correction * (ballA.mass / totalMass);
+        posA -= collisionNormal * correction * (ballB.getMass() / totalMass);
+        posB += collisionNormal * correction * (ballA.getMass() / totalMass);
+
+        // Обновляем позиции
+        ballA.setPosition(posA);
+        ballB.setPosition(posB);
 
         // Скорости по формулам упругого столкновения
-        glm::vec3 relativeVelocity = ballB.velocity - ballA.velocity;
+        glm::vec3 relativeVelocity = velB - velA;
         float velocityAlongNormal = glm::dot(relativeVelocity, collisionNormal);
 
         if (velocityAlongNormal > 0)
@@ -119,11 +135,12 @@ void Physics::HandleBallCollisions(Ball& ballA, Ball& ballB) {
         const float restitution = 0.9f;
 
         float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
-        impulseMagnitude /= (1.0f / ballA.mass + 1.0f / ballB.mass);
+        impulseMagnitude /= (1.0f / ballA.getMass() + 1.0f / ballB.getMass());
 
         glm::vec3 impulse = impulseMagnitude * collisionNormal;
 
-        ballA.velocity -= impulse / ballA.mass;
-        ballB.velocity += impulse / ballB.mass;
+        // Применяем импульсы через методы класса Ball
+        ballA.applyImpulse(-impulse);
+        ballB.applyImpulse(impulse);
     }
 }

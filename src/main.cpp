@@ -3,6 +3,7 @@
 #include "render/Shader.hpp"
 #include "render/Renderer.hpp"
 #include "game/Physics.hpp"
+#include "game/Ball.hpp"  // Подключаем новый класс Ball
 
 int main() {
     Window window(1280, 720, "3D Billiards");
@@ -21,10 +22,11 @@ int main() {
     Physics physics(2.0f, 1.0f, 0.1f);
 
     float ballRadius = 0.05f;
+    float ballMass = 1.0f;
     std::vector<Ball> balls;
 
-    // Черный шар - кий-бол
-    balls.emplace_back(glm::vec3(-0.8f, ballRadius, 0.0f), ballRadius, 1.0f);
+    // Черный шар - кий-бол (используем конструктор нового класса)
+    balls.emplace_back(glm::vec3(-0.8f, ballRadius, 0.0f), ballRadius, ballMass);
 
     // Треугольная расстановка белых шаров
     int rows = 5;
@@ -35,7 +37,7 @@ int main() {
         for (int col = 0; col <= row; ++col) {
             float x = startPos.x + row * spacing * 0.866f; // cos(30°)
             float z = startPos.z - row * spacing * 0.5f + col * spacing;
-            balls.emplace_back(glm::vec3(x, ballRadius, z), ballRadius, 1.0f);
+            balls.emplace_back(glm::vec3(x, ballRadius, z), ballRadius, ballMass);
         }
     }
 
@@ -70,8 +72,9 @@ int main() {
             if (cuePower > 1.0f) cuePower = 1.0f;
         } else {
             // Отпуск пробела — наносим удар, если сила > 0
-            if (cuePower > 0.01f && glm::length(balls[0].velocity) < 0.01f) {
-                balls[0].velocity = cueDirection * (cuePower * 5.0f);
+            // Используем метод isMoving() нового класса Ball
+            if (cuePower > 0.01f && !balls[0].isMoving()) {
+                balls[0].setVelocity(cueDirection * (cuePower * 5.0f));
             }
             cuePower = 0.0f;
         }
@@ -88,26 +91,30 @@ int main() {
         renderer.DrawTable(glm::vec3(0, 0, 0), glm::vec2(2.0f, 1.0f), glm::vec3(0.0f, 0.5f, 0.0f), view, projection);
 
         // Отрисовка шаров: первый — черный, остальные — белые (светло-серые)
+        // Используем методы нового класса Ball
         for (size_t i = 0; i < balls.size(); ++i) {
             glm::vec3 color = (i == 0) ? glm::vec3(0.0f, 0.0f, 0.0f) : glm::vec3(0.7f, 0.7f, 0.7f);
-            renderer.DrawBall(balls[i].position, balls[i].radius, color, view, projection);
+            renderer.DrawBall(balls[i].getPosition(), balls[i].getRadius(), color, view, projection);
         }
 
         // Отрисовка кия — прямоугольник с толщиной
         const Ball& cueBall = balls[0];
         float cueLength = 2.0f * cuePower + 0.5f; // длина киа зависит от силы
-        glm::vec3 cueEnd = cueBall.position - glm::normalize(cueDirection) * cueLength;
+        glm::vec3 cueEnd = cueBall.getPosition() - glm::normalize(cueDirection) * cueLength;
         glm::vec3 cueColor(1.0f, 0.7f, 0.3f);
+        
+        // Проверяем, движутся ли шары, используя метод isMoving()
         bool ballsMoving = false;
         for (const auto& ball : balls) {
-            if (glm::length(ball.velocity) > 0.01f) {  // порог скорости
+            if (ball.isMoving()) {
                 ballsMoving = true;
                 break;
             }
         }
+        
         if (!ballsMoving) {
             // Рисуем кий только если шары стоят
-            renderer.DrawCue(cueBall.position, cueEnd, cueColor, cueThickness, view, projection);
+            renderer.DrawCue(cueBall.getPosition(), cueEnd, cueColor, cueThickness, view, projection);
         }
 
         window.swapBuffers();
