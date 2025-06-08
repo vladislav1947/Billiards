@@ -73,16 +73,23 @@ bool Shader::Init() {
         }
     )";
 
-    const char* fragmentShaderSource = R"(
-        #version 330 core
-        out vec4 FragColor;
+   const char* fragmentShaderSource = R"(
+    #version 330 core
+    out vec4 FragColor;
 
-        uniform vec3 uColor;
+    uniform vec3 uColor;
+    uniform vec3 uLightDir;
+    uniform vec3 uNormal;
 
-        void main() {
-            FragColor = vec4(uColor, 1.0);
-        }
-    )";
+    void main() {
+        // Мягкое освещение с небольшим ambient компонентом
+        float ambient = 0.3;
+        float diffuse = max(dot(uNormal, -uLightDir), 0.0);
+        float lighting = ambient + (1.0 - ambient) * diffuse;
+        
+        FragColor = vec4(uColor * lighting, 1.0);
+    }
+)";
 
     // Компиляция вершинного шейдера
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);

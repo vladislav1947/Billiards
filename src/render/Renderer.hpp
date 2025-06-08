@@ -30,7 +30,18 @@ public:
     void DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
                  const glm::mat4& view, const glm::mat4& projection);
 
+    void DrawWall(const glm::vec3& position, const glm::vec2& size, float height, const glm::vec3& color,
+        const glm::mat4& view, const glm::mat4& projection);
+
+    void DrawPocket(const glm::vec3& position, float radius,
+                const glm::mat4& view, const glm::mat4& projection);
+
+    void SetCameraPos(const glm::vec3& pos) { cameraPos = pos; }
+
 private:
+
+
+    glm::vec3 cameraPos;
     Shader shader;
 
     GLuint sphereVAO = 0, sphereVBO = 0, sphereEBO = 0;
@@ -177,10 +188,55 @@ void Renderer::CreateCue() {
     glBindVertexArray(0);
 }
 
-void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
+void Renderer::DrawWall(const glm::vec3& position, const glm::vec2& size, float height, const glm::vec3& color,
                         const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
 
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+    model = glm::scale(model, glm::vec3(size.x, height, size.y));
+
+    shader.SetMat4("uModel", model);
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+    shader.SetVec3("uColor", color);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Renderer::DrawPocket(const glm::vec3& position, float radius,
+                          const glm::mat4& view, const glm::mat4& projection) {
+    shader.Use();
+
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+    model = glm::scale(model, glm::vec3(radius, 0.1f, radius)); // Немного приплюснутый
+
+    shader.SetMat4("uModel", model);
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+    shader.SetVec3("uColor", glm::vec3(0.0f, 0.0f, 0.0f)); // Черные лунки
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
+                        const glm::mat4& view, const glm::mat4& projection) {
+    shader.Use();
+    
+    // Нормаль для сферы (от центра к поверхности)
+    glm::vec3 normal = glm::normalize(position - glm::vec3(0.0f, position.y, 0.0f));
+    
+    // Источник света прямо сверху (в середине стола)
+    glm::vec3 lightPos = glm::vec3(0.0f, 2.0f, 0.0f); // 2 единицы над столом
+    glm::vec3 lightDir = glm::normalize(lightPos - position);
+    
+    shader.SetVec3("uNormal", normal);
+    shader.SetVec3("uLightDir", lightDir);
+    
+    // Остальной код без изменений...
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     model = glm::scale(model, glm::vec3(radius));
 
@@ -197,7 +253,14 @@ void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3
 void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                          const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
-
+    
+    // Для стола нормаль всегда вверх
+    shader.SetVec3("uNormal", glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    // Направление света сверху вниз (из центра)
+    shader.SetVec3("uLightDir", glm::vec3(0.0f, -1.0f, 0.0f));
+    
+    // Остальной код без изменений...
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     model = glm::scale(model, glm::vec3(size.x, 1.0f, size.y));
 

@@ -46,7 +46,19 @@ int main() {
     const float cueThickness = 0.03f; // Толщина кия
 
     glEnable(GL_DEPTH_TEST);
-    glClearColor(1.f, 1.f, 1.f, 1.f); // белый фон
+    glClearColor(0.5f, 0.7f, 1.0f, 1.0f); // голубой фон
+
+    // Перед главным циклом
+    const float pocketRadius = 0.08f;
+    
+    std::vector<glm::vec3> pockets = {
+    glm::vec3(-0.95f, 0.01f, -0.45f),  // левый нижний угол
+    glm::vec3(-0.95f, 0.01f, 0.45f),   // левый верхний угол
+    glm::vec3(0.95f, 0.01f, -0.45f),   // правый нижний угол
+    glm::vec3(0.95f, 0.01f, 0.45f),    // правый верхний угол
+    glm::vec3(0.0f, 0.01f, -0.45f),    // середина нижней стороны
+    glm::vec3(0.0f, 0.01f, 0.45f)      // середина верхней стороны
+    };
 
     while (!window.shouldClose()) {
         window.update();
@@ -82,13 +94,55 @@ int main() {
         // Обновление физики
         physics.Update(balls, dt);
 
+        // В главном цикле после physics.Update
+        for (auto& ball : balls) {
+            for (const auto& pocket : pockets) {
+                if (physics.CheckPocketCollision(ball, pocket, pocketRadius)) {
+                    ball.setPosition(glm::vec3(-100.0f, -100.0f, -100.0f)); // Убираем шар с поля
+                    ball.setVelocity(glm::vec3(0.0f));
+                    break;
+                }
+            }
+        }
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 view = camera->getViewMatrix();
         glm::mat4 projection = camera->getProjectionMatrix(window.getAspectRatio());
 
+         // +++ Добавляем эту строку здесь +++
+        renderer.SetCameraPos(camera->getPosition()); // Передаем позицию камеры в рендерер
+
         // Зеленый стол
         renderer.DrawTable(glm::vec3(0, 0, 0), glm::vec2(2.0f, 1.0f), glm::vec3(0.0f, 0.5f, 0.0f), view, projection);
+
+        // После отрисовки стола
+        const float wallHeight = 0.1f;
+        const float wallThickness = 0.05f;
+        glm::vec3 wallColor(0.3f, 0.2f, 0.1f); // коричневый цвет
+        
+        // Длинные стенки (по Z)
+        renderer.DrawWall(glm::vec3(-1.0f, wallHeight/2, 0.0f), 
+                 glm::vec2(wallThickness, 1.0f + 2*wallThickness), 
+                 wallHeight, wallColor, view, projection);
+        renderer.DrawWall(glm::vec3(1.0f, wallHeight/2, 0.0f), 
+                 glm::vec2(wallThickness, 1.0f + 2*wallThickness), 
+                 wallHeight, wallColor, view, projection);
+
+                 // Короткие стенки (по X)
+        renderer.DrawWall(glm::vec3(0.0f, wallHeight/2, -0.5f), 
+                 glm::vec2(2.0f, wallThickness), 
+                 wallHeight, wallColor, view, projection);
+        renderer.DrawWall(glm::vec3(0.0f, wallHeight/2, 0.5f), 
+                 glm::vec2(2.0f, wallThickness), 
+                 wallHeight, wallColor, view, projection);
+
+        // В отрисовке после стенок
+        for (const auto& pocket : pockets) {
+            renderer.DrawPocket(pocket, pocketRadius, view, projection);
+        }
+
+        
 
         // Отрисовка шаров: первый — черный, остальные — белые (светло-серые)
         // Используем методы нового класса Ball

@@ -11,6 +11,11 @@ public:
     // Обновление состояния всех шаров за один кадр (dt — дельта времени)
     void Update(std::vector<Ball>& balls, float dt);
 
+    bool CheckPocketCollision(const Ball& ball, const glm::vec3& pocketPos, float pocketRadius) {
+    float dist = glm::distance(ball.getPosition(), pocketPos);
+    return dist < pocketRadius;
+}
+
 private:
     float tableWidth;
     float tableHeight;
