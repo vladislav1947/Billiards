@@ -1,11 +1,15 @@
 #pragma once
 
-#define _USE_MATH_DEFINES
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
-#include <cmath>
 #include <iostream>
 #include "Shader.hpp"
 
@@ -14,34 +18,32 @@ public:
     Renderer();
     ~Renderer();
 
-    // Инициализация рендерера
     bool Init();
 
-    // Рисуем примитив (например, мяч)
     void DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
                   const glm::mat4& view, const glm::mat4& projection);
 
-    // Рисуем стол (плоскость)
     void DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                    const glm::mat4& view, const glm::mat4& projection);
+
+    // Теперь с параметром толщины линии
+    void DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
+                 const glm::mat4& view, const glm::mat4& projection);
 
 private:
     Shader shader;
 
-    GLuint sphereVAO = 0;
-    GLuint sphereVBO = 0;
-    GLuint sphereEBO = 0;
+    GLuint sphereVAO = 0, sphereVBO = 0, sphereEBO = 0;
+    GLuint quadVAO = 0, quadVBO = 0, quadEBO = 0;
+
+    // Для кия теперь рисуем не линию, а прямоугольник (2 треугольника)
+    GLuint cueVAO = 0, cueVBO = 0, cueEBO = 0;
+
     unsigned int indexCount = 0;
 
-    GLuint quadVAO = 0;
-    GLuint quadVBO = 0;
-    GLuint quadEBO = 0;  // Добавить это поле
-
-    // Создание геометрии сферы
     void CreateSphere();
-
-    // Создание геометрии квадрата (для стола)
     void CreateQuad();
+    void CreateCue();
 
     void Cleanup();
 };
@@ -62,12 +64,12 @@ bool Renderer::Init() {
 
     CreateSphere();
     CreateQuad();
+    CreateCue();
 
     return true;
 }
 
 void Renderer::CreateSphere() {
-    // Генерация сферы — минималистично, low-poly UV сфера
     const unsigned int X_SEGMENTS = 16;
     const unsigned int Y_SEGMENTS = 16;
     std::vector<float> vertices;
@@ -115,7 +117,6 @@ void Renderer::CreateSphere() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Позиция: layout (location = 0)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
@@ -124,7 +125,6 @@ void Renderer::CreateSphere() {
 
 void Renderer::CreateQuad() {
     float quadVertices[] = {
-        // позиции
         -0.5f, 0.0f, -0.5f,
          0.5f, 0.0f, -0.5f,
          0.5f, 0.0f,  0.5f,
@@ -138,7 +138,7 @@ void Renderer::CreateQuad() {
 
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
-    glGenBuffers(1, &quadEBO);  // Используем член класса
+    glGenBuffers(1, &quadEBO);
 
     glBindVertexArray(quadVAO);
 
@@ -147,6 +147,29 @@ void Renderer::CreateQuad() {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+    glBindVertexArray(0);
+}
+
+// Создаем VAO/VBO/EBO для кия — это будет прямоугольник с 4 вершинами и 6 индексами
+void Renderer::CreateCue() {
+    glGenVertexArrays(1, &cueVAO);
+    glGenBuffers(1, &cueVBO);
+    glGenBuffers(1, &cueEBO);
+
+    glBindVertexArray(cueVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, cueVBO);
+    // 4 вершины по 3 float (x,y,z)
+    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cueEBO);
+    // 2 треугольника = 6 индексов
+    unsigned int indices[] = {0, 1, 2, 2, 3, 0};
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -188,17 +211,55 @@ void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const
     glBindVertexArray(0);
 }
 
+// Отрисовка кия как прямоугольника с толщиной
+void Renderer::DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
+                       const glm::mat4& view, const glm::mat4& projection) {
+    shader.Use();
+
+    // Вычисляем направление и вектор "вбок" для толщины
+    glm::vec3 dir = glm::normalize(to - from);
+    // Вектор "вверх" для построения боковой смещённой линии — можно взять мировой "вверх"
+    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    glm::vec3 right = glm::normalize(glm::cross(dir, up)) * (thickness * 0.5f);
+
+    // 4 вершины прямоугольника кия
+    // Вершины идут по порядку для индексов {0,1,2} и {2,3,0}
+    glm::vec3 vertices[4] = {
+        from - right,
+        from + right,
+        to + right,
+        to - right
+    };
+
+    // Загружаем вершины в буфер
+    glBindBuffer(GL_ARRAY_BUFFER, cueVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    shader.SetMat4("uModel", model);
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+    shader.SetVec3("uColor", color);
+
+    glBindVertexArray(cueVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
 void Renderer::Cleanup() {
     if (sphereVAO) {
         glDeleteVertexArrays(1, &sphereVAO);
         glDeleteBuffers(1, &sphereVBO);
         glDeleteBuffers(1, &sphereEBO);
-        sphereVAO = sphereVBO = sphereEBO = 0;
     }
     if (quadVAO) {
         glDeleteVertexArrays(1, &quadVAO);
         glDeleteBuffers(1, &quadVBO);
         glDeleteBuffers(1, &quadEBO);
-        quadVAO = quadVBO = quadEBO = 0;
+    }
+    if (cueVAO) {
+        glDeleteVertexArrays(1, &cueVAO);
+        glDeleteBuffers(1, &cueVBO);
+        glDeleteBuffers(1, &cueEBO);
     }
 }
