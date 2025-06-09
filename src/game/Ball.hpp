@@ -25,58 +25,50 @@ public:
     void setVelocity(const glm::vec3& vel);
 
 private:
+
     glm::vec3 position;
     glm::vec3 velocity;
     float radius;
     float mass;
 };
 
-inline Ball::Ball(const glm::vec3& position, float radius, float mass)
-    : position(position), velocity(0.0f), radius(radius), mass(mass) {}
+///////////////////////////////////////////////////////////////////////////////////////////////
 
-inline void Ball::update(float deltaTime) {
+Ball::Ball(const glm::vec3& position, float radius, float mass)
+    : position(position),
+      velocity(0.0f),
+      radius(radius),
+      mass(mass) {}
+
+void Ball::update(float deltaTime) {
     position += velocity * deltaTime;
 }
 
-inline void Ball::applyImpulse(const glm::vec3& impulse) {
+void Ball::applyImpulse(const glm::vec3& impulse) {
     velocity += impulse / mass;
 }
 
-inline void Ball::applyFriction(float frictionCoeff, float deltaTime) {
-    if (glm::length2(velocity) > 0.0f) {
-        glm::vec3 friction = -glm::normalize(velocity) * frictionCoeff * deltaTime;
-        if (glm::length2(friction) > glm::length2(velocity)) {
-            velocity = glm::vec3(0.0f);
-        } else {
-            velocity += friction;
-        }
-    }
+void Ball::applyFriction(float frictionCoeff, float deltaTime) {
+    const float speedSquared = glm::length2(velocity);
+    if (speedSquared <= 0.0f) return;
+
+    const glm::vec3 frictionDir = -glm::normalize(velocity);
+    const glm::vec3 friction = frictionDir * frictionCoeff * deltaTime;
+    const float frictionSquared = glm::length2(friction);
+
+    velocity = (frictionSquared > speedSquared) 
+        ? glm::vec3(0.0f) 
+        : velocity + friction;
 }
 
-inline bool Ball::isMoving(float threshold) const {
+bool Ball::isMoving(float threshold) const {
     return glm::length2(velocity) > threshold * threshold;
 }
 
-inline const glm::vec3& Ball::getPosition() const {
-    return position;
-}
+const glm::vec3& Ball::getPosition() const { return position; }
+const glm::vec3& Ball::getVelocity() const { return velocity; }
+float Ball::getRadius() const { return radius; }
+float Ball::getMass() const { return mass; }
 
-inline const glm::vec3& Ball::getVelocity() const {
-    return velocity;
-}
-
-inline float Ball::getRadius() const {
-    return radius;
-}
-
-inline float Ball::getMass() const {
-    return mass;
-}
-
-inline void Ball::setPosition(const glm::vec3& pos) {
-    position = pos;
-}
-
-inline void Ball::setVelocity(const glm::vec3& vel) {
-    velocity = vel;
-}
+void Ball::setPosition(const glm::vec3& pos) { position = pos; }
+void Ball::setVelocity(const glm::vec3& vel) { velocity = vel; }
