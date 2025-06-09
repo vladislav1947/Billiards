@@ -174,6 +174,8 @@ int main() {
                 positions.push_back(b.getPosition());
             }
 
+            float tableWidth = 2.0f;  // или physics.getTableWidth(), если добавить такой метод
+            float tableHeight = 1.0f; // или physics.getTableHeight()
             glm::vec3 impact = cue.computeImpactPoint(hitPoint, positions, cueBall.getRadius(), tableWidth, tableHeight);
             renderer.DrawLine(hitPoint, impact, {1.0f, 1.0f, 1.0f}, view, projection); // белая линия
         }

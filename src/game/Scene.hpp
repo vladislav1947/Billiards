@@ -68,6 +68,11 @@ inline void Scene::Render(Renderer& renderer,
 
     // Рисуем сам стол с бортиками и лунками
     drawTable(renderer, view, projection);
+
+    // Затем лунки (после стола, чтобы они были сверху)
+    for (const auto& pocket : pocketPositions) {
+        renderer.DrawPocket(pocket, pocketRadius, view, projection);
+    }
 }
 
 inline void Scene::drawSkyBackground() {
@@ -81,7 +86,7 @@ inline void Scene::drawFloor(Renderer& renderer,
                              const glm::mat4& view,
                              const glm::mat4& projection)
 {
-    glm::vec2 floorSize(100.0f, 100.0f);
+    glm::vec2 floorSize(2.4f, 1.25f);
     glm::vec3 floorPos(0.0f, -0.01f, 0.0f);
     renderer.DrawTable(floorPos, floorSize, floorColor, view, projection);
 }

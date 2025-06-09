@@ -82,6 +82,7 @@ bool Renderer::Init() {
     CreateSphere();
     CreateQuad();
     CreateCue();
+    InitCube();  // Добавьте эту строку
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -91,11 +92,14 @@ bool Renderer::Init() {
 
 void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color,
                         const glm::mat4& view, const glm::mat4& projection) {
-    glUseProgram(simpleShader.ID); // Убедись, что он поддерживает MVP и цвет
+
+    shader.Use(); // Заменяем simpleShader на shader
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 mvp = projection * view * model;
-    simpleShader.setMat4("u_MVP", mvp);
-    simpleShader.setVec3("u_Color", color);
+    shader.SetMat4("uModel", model); // Используем shader вместо simpleShader
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+    shader.SetVec3("uColor", color);
 
     float vertices[] = {
         start.x, start.y, start.z,
@@ -252,14 +256,68 @@ void Renderer::DrawBox(const glm::vec3& position, const glm::vec3& size, const g
 
     // Установить шейдер, передать uniform-ы (модель, вид, проекция, цвет)
     shader.Use();
-    shader.SetMat4("model", model);
-    shader.SetMat4("view", view);
-    shader.SetMat4("projection", projection);
-    shader.SetVec3("color", color);
+    shader.SetMat4("uModel", model);       // Используем единообразные имена
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+    shader.SetVec3("uColor", color);
 
     // Отрисовать куб (используя заранее подготовленный VAO куба)
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
+
+void Renderer::InitCube() {
+    // Вершины куба (8 вершин)
+    float vertices[] = {
+        // Передняя грань
+        -0.5f, -0.5f,  0.5f,  // 0
+         0.5f, -0.5f,  0.5f,  // 1
+         0.5f,  0.5f,  0.5f,  // 2
+        -0.5f,  0.5f,  0.5f,  // 3
+        
+        // Задняя грань
+        -0.5f, -0.5f, -0.5f,  // 4
+         0.5f, -0.5f, -0.5f,  // 5
+         0.5f,  0.5f, -0.5f,  // 6
+        -0.5f,  0.5f, -0.5f   // 7
+    };
+
+    // Индексы для отрисовки (12 треугольников = 36 индексов)
+    unsigned int indices[] = {
+        // Передняя грань
+        0, 1, 2, 2, 3, 0,
+        // Правая грань
+        1, 5, 6, 6, 2, 1,
+        // Задняя грань
+        7, 6, 5, 5, 4, 7,
+        // Левая грань
+        4, 0, 3, 3, 7, 4,
+        // Нижняя грань
+        4, 5, 1, 1, 0, 4,
+        // Верхняя грань
+        3, 2, 6, 6, 7, 3
+    };
+
+    // Создаем и настраиваем VAO, VBO и EBO
+    glGenVertexArrays(1, &cubeVAO);
+    glGenBuffers(1, &cubeVBO);
+    glGenBuffers(1, &cubeEBO);
+
+    glBindVertexArray(cubeVAO);
+
+    // Заполняем VBO вершинами
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Заполняем EBO индексами
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Указываем атрибуты вершин
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
     glBindVertexArray(0);
 }
 
