@@ -60,33 +60,53 @@ bool Shader::Init() {
     // Встроенные шейдеры для базового рендеринга
     const char* vertexShaderSource = R"(
         #version 330 core
-        layout (location = 0) in vec3 aPos;
+    layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec3 aNormal;
 
-        uniform mat4 uModel;
-        uniform mat4 uView;
-        uniform mat4 uProjection;
+    uniform mat4 uModel;
+    uniform mat4 uView;
+    uniform mat4 uProjection;
 
-        void main() {
-            gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
-        }
+    out vec3 FragPos;
+    out vec3 Normal;
+
+    void main() {
+        FragPos = vec3(uModel * vec4(aPos, 1.0));
+        Normal = mat3(transpose(inverse(uModel))) * aNormal;
+        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
+}
     )";
 
    const char* fragmentShaderSource = R"(
     #version 330 core
     out vec4 FragColor;
 
+    in vec3 FragPos;
+    in vec3 Normal;
+
     uniform vec3 uColor;
     uniform vec3 uLightDir;
-    uniform vec3 uNormal;
+    uniform vec3 uCameraPos;
 
     void main() {
-        // Мягкое освещение с небольшим ambient компонентом
-        float ambient = 0.3;
-        float diffuse = max(dot(uNormal, -uLightDir), 0.0);
-        float lighting = ambient + (1.0 - ambient) * diffuse;
-        
-        FragColor = vec4(uColor * lighting, 1.0);
-    }
+        // Нормализуем нормаль и направление света
+        vec3 norm = normalize(Normal);
+        vec3 lightDir = normalize(uLightDir);
+    
+        // Диффузное освещение
+        float diff = max(dot(norm, -lightDir), 0.0);
+    
+        // Отраженный свет
+        vec3 reflectDir = reflect(lightDir, norm);
+        vec3 viewDir = normalize(uCameraPos - FragPos);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    
+        // Комбинируем компоненты
+        float ambient = 0.2;
+        vec3 result = (ambient + diff + spec * 0.5) * uColor;
+    
+        FragColor = vec4(result, 1.0);
+}
 )";
 
     // Компиляция вершинного шейдера

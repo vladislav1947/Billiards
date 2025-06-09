@@ -249,74 +249,94 @@ void Renderer::DrawWall(const glm::vec3& position, const glm::vec2& size, float 
 void Renderer::DrawBox(const glm::vec3& position, const glm::vec3& size, const glm::vec3& color,
                        const glm::mat4& view, const glm::mat4& projection)
 {
-    // Построить матрицу модели для параллелепипеда
+    shader.Use();
+    
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, position);
     model = glm::scale(model, size);
 
-    // Установить шейдер, передать uniform-ы (модель, вид, проекция, цвет)
-    shader.Use();
-    shader.SetMat4("uModel", model);       // Используем единообразные имена
+    shader.SetMat4("uModel", model);
     shader.SetMat4("uView", view);
     shader.SetMat4("uProjection", projection);
     shader.SetVec3("uColor", color);
+    
+    // Для куба нормали вычисляются в шейдере на основе мировых координат
+    shader.SetVec3("uNormal", glm::vec3(0.0f)); // будет переопределено в шейдере
 
-    // Отрисовать куб (используя заранее подготовленный VAO куба)
     glBindVertexArray(cubeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
 void Renderer::InitCube() {
-    // Вершины куба (8 вершин)
+    // Вершины куба с нормалями (6 граней × 4 вершины × 6 атрибутов)
     float vertices[] = {
         // Передняя грань
-        -0.5f, -0.5f,  0.5f,  // 0
-         0.5f, -0.5f,  0.5f,  // 1
-         0.5f,  0.5f,  0.5f,  // 2
-        -0.5f,  0.5f,  0.5f,  // 3
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
         
         // Задняя грань
-        -0.5f, -0.5f, -0.5f,  // 4
-         0.5f, -0.5f, -0.5f,  // 5
-         0.5f,  0.5f, -0.5f,  // 6
-        -0.5f,  0.5f, -0.5f   // 7
-    };
-
-    // Индексы для отрисовки (12 треугольников = 36 индексов)
-    unsigned int indices[] = {
-        // Передняя грань
-        0, 1, 2, 2, 3, 0,
-        // Правая грань
-        1, 5, 6, 6, 2, 1,
-        // Задняя грань
-        7, 6, 5, 5, 4, 7,
-        // Левая грань
-        4, 0, 3, 3, 7, 4,
-        // Нижняя грань
-        4, 5, 1, 1, 0, 4,
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        
         // Верхняя грань
-        3, 2, 6, 6, 7, 3
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        
+        // Нижняя грань
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        
+        // Правая грань
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+        
+        // Левая грань
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f
     };
 
-    // Создаем и настраиваем VAO, VBO и EBO
+    // Индексы для всех граней
+    unsigned int indices[] = {
+        0, 1, 2, 2, 3, 0,       // передняя
+        4, 5, 6, 6, 7, 4,       // задняя
+        8, 9, 10, 10, 11, 8,    // верхняя
+        12, 13, 14, 14, 15, 12, // нижняя
+        16, 17, 18, 18, 19, 16, // правая
+        20, 21, 22, 22, 23, 20  // левая
+    };
+
     glGenVertexArrays(1, &cubeVAO);
     glGenBuffers(1, &cubeVBO);
     glGenBuffers(1, &cubeEBO);
 
     glBindVertexArray(cubeVAO);
 
-    // Заполняем VBO вершинами
     glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // Заполняем EBO индексами
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    // Указываем атрибуты вершин
+    // Позиции
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    
+    // Нормали
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 
     glBindVertexArray(0);
 }
