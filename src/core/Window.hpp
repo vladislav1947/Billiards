@@ -9,34 +9,36 @@
 
 class Window {
 public:
+    
     Window(int width, int height, const std::string& title);
     ~Window();
 
     bool init();
     void shutdown();
 
+    // Основные операции
     void update();
     void swapBuffers() const;
     bool shouldClose() const;
 
+    // Ввод и управление
+    void processInput();
+    bool isKeyPressed(int key) const;
+    void attachCamera(const std::shared_ptr<Camera>& camera);
+
+    // Получение состояния
     float getDeltaTime() const;
     float getAspectRatio() const;
-
     GLFWwindow* getGLFWwindow() const;
 
-    void attachCamera(const std::shared_ptr<Camera>& camera);
-    void processInput();
-
-    bool isKeyPressed(int key) const;
-
 private:
+    
     void setupCallbacks();
 
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
     static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-private:
     GLFWwindow* m_window = nullptr;
     int m_width;
     int m_height;
@@ -52,19 +54,22 @@ private:
     static inline std::shared_ptr<Camera> s_camera = nullptr;
 };
 
-inline Window::Window(int width, int height, const std::string& title)
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Window::Window(int width, int height, const std::string& title)
     : m_width(width), m_height(height), m_title(title) {}
 
-inline Window::~Window() {
+Window::~Window() {
     shutdown();
 }
 
-inline bool Window::init() {
+bool Window::init() {
     if (!glfwInit()) {
         std::cerr << "[GLFW] Failed to initialize" << std::endl;
         return false;
     }
 
+    // Настройка OpenGL контекста
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -84,16 +89,17 @@ inline bool Window::init() {
         return false;
     }
 
+    // Начальные настройки OpenGL
     glViewport(0, 0, m_width, m_height);
-    setupCallbacks();
-
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+
+    setupCallbacks();
 
     return true;
 }
 
-inline void Window::shutdown() {
+void Window::shutdown() {
     if (m_window) {
         glfwDestroyWindow(m_window);
         glfwTerminate();
@@ -101,7 +107,8 @@ inline void Window::shutdown() {
     }
 }
 
-inline void Window::update() {
+void Window::update() {
+    // Обновление тайминга
     float currentFrame = glfwGetTime();
     m_deltaTime = currentFrame - m_lastFrame;
     m_lastFrame = currentFrame;
@@ -109,59 +116,55 @@ inline void Window::update() {
     glfwPollEvents();
 }
 
-inline void Window::swapBuffers() const {
+void Window::swapBuffers() const {
     glfwSwapBuffers(m_window);
 }
 
-inline bool Window::shouldClose() const {
+bool Window::shouldClose() const {
     return glfwWindowShouldClose(m_window);
 }
 
-inline float Window::getDeltaTime() const {
-    return m_deltaTime;
-}
-
-inline float Window::getAspectRatio() const {
-    return static_cast<float>(m_width) / m_height;
-}
-
-inline GLFWwindow* Window::getGLFWwindow() const {
-    return m_window;
-}
-
-inline void Window::attachCamera(const std::shared_ptr<Camera>& camera) {
-    s_camera = camera;
-}
-
-inline void Window::processInput() {
+void Window::processInput() {
     if (!s_camera) return;
-    float deltaTime = getDeltaTime();
-    if (isKeyPressed(GLFW_KEY_W))
-        s_camera->processKeyboard(Camera_Movement::FORWARD, deltaTime);
-    if (isKeyPressed(GLFW_KEY_S))
-        s_camera->processKeyboard(Camera_Movement::BACKWARD, deltaTime);
-    if (isKeyPressed(GLFW_KEY_A))
-        s_camera->processKeyboard(Camera_Movement::LEFT, deltaTime);
-    if (isKeyPressed(GLFW_KEY_D))
-        s_camera->processKeyboard(Camera_Movement::RIGHT, deltaTime);
+    
+    const float deltaTime = getDeltaTime();
+    if (isKeyPressed(GLFW_KEY_W)) s_camera->processKeyboard(CameraMovement::FORWARD, deltaTime);
+    if (isKeyPressed(GLFW_KEY_S)) s_camera->processKeyboard(CameraMovement::BACKWARD, deltaTime);
+    if (isKeyPressed(GLFW_KEY_A)) s_camera->processKeyboard(CameraMovement::LEFT, deltaTime);
+    if (isKeyPressed(GLFW_KEY_D)) s_camera->processKeyboard(CameraMovement::RIGHT, deltaTime);
 }
 
-// Реализация нового метода проверки клавиши
-inline bool Window::isKeyPressed(int key) const {
+bool Window::isKeyPressed(int key) const {
     return glfwGetKey(m_window, key) == GLFW_PRESS;
 }
 
-inline void Window::setupCallbacks() {
+float Window::getDeltaTime() const {
+    return m_deltaTime;
+}
+
+float Window::getAspectRatio() const {
+    return static_cast<float>(m_width) / m_height;
+}
+
+GLFWwindow* Window::getGLFWwindow() const {
+    return m_window;
+}
+
+void Window::attachCamera(const std::shared_ptr<Camera>& camera) {
+    s_camera = camera;
+}
+
+void Window::setupCallbacks() {
     glfwSetFramebufferSizeCallback(m_window, framebufferSizeCallback);
     glfwSetCursorPosCallback(m_window, mouseCallback);
     glfwSetScrollCallback(m_window, scrollCallback);
 }
 
-inline void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
+void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-inline void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) {
+void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) {
     if (!s_camera) return;
 
     if (s_firstMouse) {
@@ -170,8 +173,8 @@ inline void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) 
         s_firstMouse = false;
     }
 
-    float xoffset = static_cast<float>(xpos) - s_lastX;
-    float yoffset = s_lastY - static_cast<float>(ypos);
+    const float xoffset = static_cast<float>(xpos) - s_lastX;
+    const float yoffset = s_lastY - static_cast<float>(ypos);
 
     s_lastX = static_cast<float>(xpos);
     s_lastY = static_cast<float>(ypos);
@@ -179,7 +182,8 @@ inline void Window::mouseCallback(GLFWwindow* window, double xpos, double ypos) 
     s_camera->processMouseMovement(xoffset, yoffset);
 }
 
-inline void Window::scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset) {
-    if (s_camera)
+void Window::scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset) {
+    if (s_camera) {
         s_camera->processMouseScroll(static_cast<float>(yoffset));
+    }
 }
