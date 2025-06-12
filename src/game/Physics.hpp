@@ -143,8 +143,12 @@ void Physics::HandleBallCollisions(Ball& ballA, Ball& ballB) {
 
         glm::vec3 impulse = impulseMagnitude * collisionNormal;
 
-        // Применяем импульсы через методы класса Ball
-        ballA.applyImpulse(-impulse);
-        ballB.applyImpulse(impulse);
+    // Применяем импульсы через методы класса Ball
+    ballA.applyImpulse(-impulse);
+    ballB.applyImpulse(impulse);
+    
+    // Добавляем угловой импульс в точке столкновения
+    ballA.applyAngularImpulse(ballA.getPosition() + collisionNormal * ballA.getRadius(), -impulse);
+    ballB.applyAngularImpulse(ballB.getPosition() - collisionNormal * ballB.getRadius(), impulse);
     }
 }

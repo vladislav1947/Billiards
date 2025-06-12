@@ -22,6 +22,13 @@ int main() {
     Renderer renderer;
     if (!renderer.Init()) return -1;
 
+    // Добавьте этот блок сразу после инициализации renderer
+    // После создания renderer
+    if (!renderer.LoadTextures()) {
+        std::cerr << "Failed to load ball textures!" << std::endl;
+        return -1;
+    }
+
     // Создаем объект сцены
     Scene scene;
 
@@ -105,7 +112,13 @@ int main() {
                 glm::vec3 impulse = cue.release();
                 balls[0].applyImpulse(impulse);
             }
-        }
+
+            // Добавляем вращение от удара кием
+            glm::vec3 hitPoint = cue.getHitPoint(balls[0].getPosition(), balls[0].getRadius());
+            glm::vec3 impulse = cue.release(); // Сначала получаем импульс
+            balls[0].applyImpulse(impulse);    // Применяем линейный импульс
+            balls[0].applyAngularImpulse(hitPoint, impulse); // Затем угловой
+            }
 
         // Переключение отладочной информации
         if (window.isKeyPressed(GLFW_KEY_TAB) && debugTimer > 0.5f) {
@@ -132,13 +145,22 @@ int main() {
 
         renderer.SetCameraPos(camera->getPosition());
 
+        
+
+        renderer.PrepareFrame(); // Сброс состояний
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDisable(GL_BLEND);
+
         // Рендеринг сцены
         scene.Render(renderer, view, projection, camera->getPosition());
 
-        // Отрисовка шаров
+       // Отрисовка шаров с текстурами
         for (size_t i = 0; i < balls.size(); ++i) {
             glm::vec3 color = (i == 0) ? glm::vec3(0.0f, 0.0f, 0.0f) : glm::vec3(0.7f, 0.7f, 0.7f);
-            renderer.DrawBall(balls[i].getPosition(), balls[i].getRadius(), color, view, projection);
+        renderer.DrawBall(balls[i].getPosition(), balls[i].getRadius(), color, 
+                 view, projection, balls[i].getRotation(), static_cast<int>(i));
         }
 
         // Отрисовка кия

@@ -1,16 +1,23 @@
 #pragma once
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <cmath>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <vector>
 #include <iostream>
+#include <map>
+#include <string>
 #include "Shader.hpp"
 
 class Renderer {
@@ -24,7 +31,8 @@ public:
               const glm::mat4& view, const glm::mat4& projection);
 
     void DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
-                  const glm::mat4& view, const glm::mat4& projection);
+              const glm::mat4& view, const glm::mat4& projection, 
+              const glm::quat& rotation, int ballNumber = -1);
 
     void DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                    const glm::mat4& view, const glm::mat4& projection);
@@ -45,6 +53,28 @@ public:
 
     void InitCube();
 
+    bool LoadTextures(); // Метод для загрузки текстур
+
+    void Renderer::PrepareFrame() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    shader.Use();
+    
+    // Сбрасываем все текстуры
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    // Сбрасываем состояния шейдера
+    shader.SetBool("uUseTexture", false);
+    shader.SetVec3("uColor", glm::vec3(1.0f));
+}
+    
+    void ResetMaterialStates() {
+        shader.SetBool("uUseTexture", false);
+        shader.SetVec3("uColor", glm::vec3(1.0f)); // Белый по умолчанию
+    }
+    
+    Shader& GetShader() { return shader; } // Добавляем геттер для шейдера
+
 private:
     glm::vec3 cameraPos;
     Shader shader;
@@ -55,6 +85,8 @@ private:
 
     // Для кия теперь рисуем не линию, а прямоугольник (2 треугольника)
     GLuint cueVAO = 0, cueVBO = 0, cueEBO = 0;
+
+    std::map<int, GLuint> ballTextures; // Карта текстур шаров (ключ - номер шара)
 
     unsigned int indexCount = 0;
 
@@ -124,10 +156,15 @@ void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm:
 }
 
 void Renderer::CreateSphere() {
+
+    if (sphereVAO == 0) {
+    glGenVertexArrays(1, &sphereVAO);
+    glGenBuffers(1, &sphereVBO);
+    glGenBuffers(1, &sphereEBO);
+}
     const unsigned int X_SEGMENTS = 16;
     const unsigned int Y_SEGMENTS = 16;
     std::vector<float> vertices;
-    std::vector<unsigned int> indices;
 
     for (unsigned int y = 0; y <= Y_SEGMENTS; ++y) {
         for (unsigned int x = 0; x <= X_SEGMENTS; ++x) {
@@ -137,12 +174,25 @@ void Renderer::CreateSphere() {
             float yPos = std::cos(ySegment * M_PI);
             float zPos = std::sin(xSegment * 2.0f * M_PI) * std::sin(ySegment * M_PI);
 
+            // Позиция
             vertices.push_back(xPos);
             vertices.push_back(yPos);
             vertices.push_back(zPos);
+
+            // Нормаль (направление от центра — совпадает с позицией)
+            vertices.push_back(xPos);
+            vertices.push_back(yPos);
+            vertices.push_back(zPos);
+
+            // Текстурные координаты (u, v)
+            float u = xSegment;
+            float v = ySegment;
+            vertices.push_back(u);
+            vertices.push_back(v);
         }
     }
 
+    std::vector<unsigned int> indices;
     for (unsigned int y = 0; y < Y_SEGMENTS; ++y) {
         for (unsigned int x = 0; x < X_SEGMENTS; ++x) {
             unsigned int first = y * (X_SEGMENTS + 1) + x;
@@ -160,10 +210,6 @@ void Renderer::CreateSphere() {
 
     indexCount = static_cast<unsigned int>(indices.size());
 
-    glGenVertexArrays(1, &sphereVAO);
-    glGenBuffers(1, &sphereVBO);
-    glGenBuffers(1, &sphereEBO);
-
     glBindVertexArray(sphereVAO);
     glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
@@ -171,8 +217,17 @@ void Renderer::CreateSphere() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
+    // Позиция
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+
+    // Нормаль
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // Текстурные координаты
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 
     glBindVertexArray(0);
 }
@@ -229,6 +284,42 @@ void Renderer::CreateCue() {
     glBindVertexArray(0);
 }
 
+bool Renderer::LoadTextures() {
+
+    ballTextures.clear();
+
+    // Загрузка текстур для всех шаров (0-15)
+    for (int i = 0; i <= 15; ++i) {
+        std::string path = "textures/Ball" + std::to_string(i) + ".jpg";
+        
+        // Создание текстуры
+        GLuint textureID;
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        
+        // Настройки текстуры
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        // Загрузка изображения (используйте stb_image или другую библиотеку)
+        int width, height, nrChannels;
+        unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
+            GLenum format = nrChannels == 4 ? GL_RGBA : GL_RGB;
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            ballTextures[i] = textureID;
+        } else {
+            std::cerr << "Failed to load texture: " << path << std::endl;
+            return false;
+        }
+        stbi_image_free(data);
+    }
+    return true;
+}
+
 void Renderer::DrawWall(const glm::vec3& position, const glm::vec2& size, float height, const glm::vec3& color,
                         const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
@@ -260,8 +351,6 @@ void Renderer::DrawBox(const glm::vec3& position, const glm::vec3& size, const g
     shader.SetMat4("uProjection", projection);
     shader.SetVec3("uColor", color);
     
-    // Для куба нормали вычисляются в шейдере на основе мировых координат
-    shader.SetVec3("uNormal", glm::vec3(0.0f)); // будет переопределено в шейдере
 
     glBindVertexArray(cubeVAO);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
@@ -373,8 +462,6 @@ void Renderer::DrawPocket(const glm::vec3& position, float radius,
     shader.SetMat4("uView", view);
     shader.SetMat4("uProjection", projection);
     shader.SetVec3("uColor", glm::vec3(0.0f, 0.0f, 0.0f));
-    shader.SetVec3("uNormal", glm::vec3(0.0f, 1.0f, 0.0f));
-    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f)));
 
     glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(vertices.size()));
 
@@ -386,37 +473,44 @@ void Renderer::DrawPocket(const glm::vec3& position, float radius,
 }
 
 void Renderer::DrawBall(const glm::vec3& position, float radius, const glm::vec3& color,
-                        const glm::mat4& view, const glm::mat4& projection) {
+                        const glm::mat4& view, const glm::mat4& projection,
+                        const glm::quat& rotation, int ballNumber)
+{
     shader.Use();
 
-    glm::vec3 normal = glm::normalize(position - glm::vec3(0.0f, position.y, 0.0f));
-
-    glm::vec3 lightPos = glm::vec3(0.0f, 2.0f, 0.0f);
-    glm::vec3 lightDir = glm::normalize(lightPos - position);
-
-    shader.SetVec3("uNormal", normal);
-    shader.SetVec3("uLightDir", lightDir);
+    bool useTexture = (ballNumber >= 0 && ballNumber <= 15 && !ballTextures.empty());
+    if (useTexture) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ballTextures[ballNumber]);
+        shader.SetInt("uTexture", 0);
+        shader.SetBool("uUseTexture", true);
+    } else {
+        shader.SetBool("uUseTexture", false);
+        shader.SetVec3("uColor", color);
+    }
 
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+    glm::mat4 rotationMatrix =glm::toMat4(rotation);
+model = model * rotationMatrix;
     model = glm::scale(model, glm::vec3(radius));
 
     shader.SetMat4("uModel", model);
     shader.SetMat4("uView", view);
     shader.SetMat4("uProjection", projection);
-    shader.SetVec3("uColor", color);
 
     glBindVertexArray(sphereVAO);
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+    
+    if (useTexture) {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }
 
 void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color,
                          const glm::mat4& view, const glm::mat4& projection) {
     shader.Use();
 
-    shader.SetVec3("uNormal", glm::vec3(0.0f, 1.0f, 0.0f));
-
-    shader.SetVec3("uLightDir", glm::vec3(0.0f, -1.0f, 0.0f));
 
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     model = glm::scale(model, glm::vec3(size.x, 1.0f, size.y));
@@ -433,6 +527,10 @@ void Renderer::DrawTable(const glm::vec3& position, const glm::vec2& size, const
 
 void Renderer::DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color, float thickness,
                        const glm::mat4& view, const glm::mat4& projection) {
+
+
+    shader.SetBool("uUseTexture", false);  // Явно отключаем текстуры
+    shader.SetVec3("uColor", color);      // Используем переданный цвет
     shader.Use();
 
     glm::vec3 dir = glm::normalize(to - from);

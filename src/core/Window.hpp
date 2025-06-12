@@ -132,6 +132,8 @@ void Window::processInput() {
     if (isKeyPressed(GLFW_KEY_S)) s_camera->processKeyboard(CameraMovement::BACKWARD, deltaTime);
     if (isKeyPressed(GLFW_KEY_A)) s_camera->processKeyboard(CameraMovement::LEFT, deltaTime);
     if (isKeyPressed(GLFW_KEY_D)) s_camera->processKeyboard(CameraMovement::RIGHT, deltaTime);
+
+    glEnable(GL_DEPTH_TEST); // Всегда включаем тест глубины
 }
 
 bool Window::isKeyPressed(int key) const {
