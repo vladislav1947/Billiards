@@ -44,7 +44,7 @@ int main() {
     // Треугольная расстановка белых шаров
     int rows = 5;
     float spacing = ballRadius * 2.05f; // чуть больше диаметра, чтобы не перекрывались
-    glm::vec3 startPos(0.6f, ballRadius, 0.0f);  // ближе к центру стола, справа
+    glm::vec3 startPos(0.3f, ballRadius, 0.0f);  // ближе к центру стола, справа
 
     for (int row = 0; row < rows; ++row) {
         for (int col = 0; col <= row; ++col) {
