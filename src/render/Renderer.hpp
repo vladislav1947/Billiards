@@ -185,7 +185,7 @@ void Renderer::CreateSphere() {
             vertices.push_back(zPos);
 
             // Текстурные координаты (u, v)
-            float u = xSegment;
+            float u = 1.0f - xSegment;
             float v = ySegment;
             vertices.push_back(u);
             vertices.push_back(v);
