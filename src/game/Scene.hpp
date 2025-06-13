@@ -22,6 +22,9 @@ private:
     float wallThickness;
     float pocketRadius;
     std::vector<glm::vec3> pocketPositions;
+    float legWidth;   // Ширина ножки
+    float legHeight;  // Высота ножки
+    glm::vec3 legColor; // Цвет ножек
 
     void drawSkyBackground();
     void drawFloor(Renderer& renderer,
@@ -40,7 +43,10 @@ inline Scene::Scene()
       wallColor(0.3f, 0.2f, 0.1f),
       wallHeight(0.1f),
       wallThickness(0.05f),
-      pocketRadius(0.08f)
+      pocketRadius(0.08f),
+      legWidth(0.08f),   // Ширина ножки (8 см)
+      legHeight(0.6f),   // Высота ножки (60 см)
+      legColor(0.3f, 0.15f, 0.05f) // Цвет ножек (коричневый)
 {
     pocketPositions = {
         {-0.95f, 0.01f, -0.45f},
@@ -93,65 +99,59 @@ inline void Scene::drawFloor(Renderer& renderer,
 
 inline void Scene::drawTable(Renderer& renderer,
                              const glm::mat4& view,
-                             const glm::mat4& projection)
+                             const glm::mat4& projection) 
 {
-    // Игровая поверхность
+    // Игровая поверхность (как раньше)
     renderer.DrawTable(glm::vec3(0, 0, 0), tableSize, tableColor, view, projection);
 
-    // Параллелепипеды - бортики стола (объемные)
-    // Ширина, высота, глубина бортиков
-    float wallHeight = 0.1f;
-    float wallThickness = 0.05f;
-
-    // Бортики по X (длинные и тонкие)
+    // Бортики (как раньше)
     glm::vec3 sizeX(tableSize.x + 2 * wallThickness, wallHeight, wallThickness);
-    // Бортики по Z (тонкие и длинные)
     glm::vec3 sizeZ(wallThickness, wallHeight, tableSize.y);
 
-    // Бортик - задний (по Z положительный)
+    // Задний бортик
     renderer.DrawBox(
         glm::vec3(0.0f, wallHeight / 2.0f, tableSize.y / 2.0f + wallThickness / 2.0f),
         sizeX, wallColor, view, projection);
 
-    // Бортик - передний (по Z отрицательный)
+    // Передний бортик
     renderer.DrawBox(
         glm::vec3(0.0f, wallHeight / 2.0f, - (tableSize.y / 2.0f + wallThickness / 2.0f)),
         sizeX, wallColor, view, projection);
 
-    // Бортик - левый (по X отрицательный)
+    // Левый бортик
     renderer.DrawBox(
         glm::vec3(- (tableSize.x / 2.0f + wallThickness / 2.0f), wallHeight / 2.0f, 0.0f),
         sizeZ, wallColor, view, projection);
 
-    // Бортик - правый (по X положительный)
+    // Правый бортик
     renderer.DrawBox(
         glm::vec3(tableSize.x / 2.0f + wallThickness / 2.0f, wallHeight / 2.0f, 0.0f),
         sizeZ, wallColor, view, projection);
 
-    // Параллелепипеды - ножки стола (толстые и высокие)
-    float legWidth = 0.1f;
-    float legHeight = 0.7f;
-    glm::vec3 legColor(0.3f, 0.15f, 0.05f);
-
+    // Ножки стола (4 штуки по углам)
     glm::vec3 legSize(legWidth, legHeight, legWidth);
+
+    // Координаты углов стола с учётом толщины бортиков
+    float xCorner = tableSize.x / 2.0f + wallThickness - legWidth / 2.0f;
+    float zCorner = tableSize.y / 2.0f + wallThickness - legWidth / 2.0f;
 
     // Левая передняя ножка
     renderer.DrawBox(
-        glm::vec3(- (tableSize.x / 2.0f + wallThickness), -legHeight / 2.0f, - (tableSize.y / 2.0f + wallThickness)),
+        glm::vec3(-xCorner, -legHeight / 2.0f, -zCorner),
         legSize, legColor, view, projection);
 
     // Левая задняя ножка
     renderer.DrawBox(
-        glm::vec3(- (tableSize.x / 2.0f + wallThickness), -legHeight / 2.0f, tableSize.y / 2.0f + wallThickness),
+        glm::vec3(-xCorner, -legHeight / 2.0f, zCorner),
         legSize, legColor, view, projection);
 
     // Правая передняя ножка
     renderer.DrawBox(
-        glm::vec3(tableSize.x / 2.0f + wallThickness, -legHeight / 2.0f, - (tableSize.y / 2.0f + wallThickness)),
+        glm::vec3(xCorner, -legHeight / 2.0f, -zCorner),
         legSize, legColor, view, projection);
 
     // Правая задняя ножка
     renderer.DrawBox(
-        glm::vec3(tableSize.x / 2.0f + wallThickness, -legHeight / 2.0f, tableSize.y / 2.0f + wallThickness),
+        glm::vec3(xCorner, -legHeight / 2.0f, zCorner),
         legSize, legColor, view, projection);
 }
