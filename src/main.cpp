@@ -110,20 +110,10 @@ int main() {
             // Отпуск пробела — наносим удар, если сила > 0
             if (cue.getPower() > 0.01f && !balls[0].isMoving()) {
                 glm::vec3 impulse = cue.release();
+                glm::vec3 hitPoint = cue.getHitPoint(balls[0].getPosition(), balls[0].getRadius());
                 balls[0].applyImpulse(impulse);
+                balls[0].applyAngularImpulse(hitPoint, impulse);
             }
-
-            // Добавляем вращение от удара кием
-            glm::vec3 hitPoint = cue.getHitPoint(balls[0].getPosition(), balls[0].getRadius());
-            glm::vec3 impulse = cue.release(); // Сначала получаем импульс
-            balls[0].applyImpulse(impulse);    // Применяем линейный импульс
-            balls[0].applyAngularImpulse(hitPoint, impulse); // Затем угловой
-            }
-
-        // Переключение отладочной информации
-        if (window.isKeyPressed(GLFW_KEY_TAB) && debugTimer > 0.5f) {
-            showDebugInfo = !showDebugInfo;
-            debugTimer = 0.0f;
         }
 
         // Обновление физики
@@ -165,7 +155,7 @@ int main() {
 
         // Отрисовка кия
         const Ball& cueBall = balls[0];
-        
+
         // Проверяем, движутся ли шары
         bool ballsMoving = false;
         for (const auto& ball : balls) {
@@ -174,7 +164,7 @@ int main() {
                 break;
             }
         }
-        
+
         if (!ballsMoving) {
             // Получаем точки кия
             glm::vec3 hitPoint = cue.getHitPoint(cueBall.getPosition(), cueBall.getRadius());
@@ -187,19 +177,20 @@ int main() {
                 cue.getPower()
             );
             
-            // Рисуем кий
-            renderer.DrawCue(cueStart, cueEnd, cueColor, cue.getWidth(), view, projection);
+            // Рисуем цилиндрический кий
+            renderer.DrawCylinder(cueStart, cueEnd, cue.getRadius(), cueColor, view, projection);
 
-            //Вектор удара
+            // Вектор удара
             std::vector<glm::vec3> positions;
             for (const auto& b : balls) {
                 positions.push_back(b.getPosition());
             }
 
-            float tableWidth = 2.0f;  // или physics.getTableWidth(), если добавить такой метод
-            float tableHeight = 1.0f; // или physics.getTableHeight()
-            glm::vec3 impact = cue.computeImpactPoint(hitPoint, positions, cueBall.getRadius(), tableWidth, tableHeight);
-            renderer.DrawLine(hitPoint, impact, {1.0f, 1.0f, 1.0f}, view, projection); // белая линия
+            float tableWidth = 2.0f;
+            float tableHeight = 1.0f;
+            glm::vec3 impact = cue.computeImpactPoint(hitPoint, positions, 
+                                                cueBall.getRadius(), tableWidth, tableHeight);
+            renderer.DrawLine(hitPoint, impact, {1.0f, 1.0f, 1.0f}, view, projection);
         }
 
         window.swapBuffers();

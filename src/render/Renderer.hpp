@@ -49,6 +49,9 @@ public:
     void DrawBox(const glm::vec3& position, const glm::vec3& size, const glm::vec3& color,
                  const glm::mat4& view, const glm::mat4& projection);
 
+    void DrawCylinder(const glm::vec3& start, const glm::vec3& end, float radius, const glm::vec3& color,
+                 const glm::mat4& view, const glm::mat4& projection);
+
     void SetCameraPos(const glm::vec3& pos) { cameraPos = pos; }
 
     void InitCube();
@@ -555,6 +558,36 @@ void Renderer::DrawCue(const glm::vec3& from, const glm::vec3& to, const glm::ve
 
     glBindVertexArray(cueVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Renderer::DrawCylinder(const glm::vec3& start, const glm::vec3& end, float radius, const glm::vec3& color,
+                          const glm::mat4& view, const glm::mat4& projection)
+{
+    shader.Use();
+    shader.SetBool("uUseTexture", false);
+    shader.SetVec3("uColor", color);
+
+    glm::vec3 direction = end - start;
+    float length = glm::length(direction);
+    direction = glm::normalize(direction);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, start);
+    
+    // Выравнивание по направлению
+    glm::vec3 axis = glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), direction);
+    float angle = acos(glm::dot(glm::vec3(0.0f, 1.0f, 0.0f), direction));
+    model = glm::rotate(model, angle, axis);
+    
+    model = glm::scale(model, glm::vec3(radius, length, radius));
+
+    shader.SetMat4("uModel", model);
+    shader.SetMat4("uView", view);
+    shader.SetMat4("uProjection", projection);
+
+    glBindVertexArray(sphereVAO);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
