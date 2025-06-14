@@ -8,23 +8,27 @@
 #include <game/Scene.hpp>
 #include <iostream>
 
-int main() {
+int main()
+{
     Window window(1280, 720, "3D Billiards");
-    if (!window.init()) return -1;
+    if (!window.init())
+        return -1;
 
     auto camera = std::make_shared<Camera>(
-        glm::vec3(0.0f, 2.0f, 3.0f),  // позиция камеры
-        glm::vec3(0.0f, 1.0f, 0.0f),  // вектор вверх
-        -90.0f, -30.0f                // yaw, pitch
+        glm::vec3(0.0f, 2.0f, 3.0f), // позиция камеры
+        glm::vec3(0.0f, 1.0f, 0.0f), // вектор вверх
+        -90.0f, -30.0f               // yaw, pitch
     );
     window.attachCamera(camera);
 
     Renderer renderer;
-    if (!renderer.Init()) return -1;
+    if (!renderer.Init())
+        return -1;
 
     // Добавьте этот блок сразу после инициализации renderer
     // После создания renderer
-    if (!renderer.LoadTextures()) {
+    if (!renderer.LoadTextures())
+    {
         std::cerr << "Failed to load ball textures!" << std::endl;
         return -1;
     }
@@ -43,11 +47,13 @@ int main() {
 
     // Треугольная расстановка белых шаров
     int rows = 5;
-    float spacing = ballRadius * 2.05f; // чуть больше диаметра, чтобы не перекрывались
-    glm::vec3 startPos(0.3f, ballRadius, 0.0f);  // ближе к центру стола, справа
+    float spacing = ballRadius * 2.05f;         // чуть больше диаметра, чтобы не перекрывались
+    glm::vec3 startPos(0.3f, ballRadius, 0.0f); // ближе к центру стола, справа
 
-    for (int row = 0; row < rows; ++row) {
-        for (int col = 0; col <= row; ++col) {
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col <= row; ++col)
+        {
             float x = startPos.x + row * spacing * 0.866f; // cos(30°)
             float z = startPos.z - row * spacing * 0.5f + col * spacing;
             balls.emplace_back(glm::vec3(x, ballRadius, z), ballRadius, ballMass);
@@ -57,58 +63,62 @@ int main() {
     // Создаем объект кия
     Cue cue;
 
-    glEnable(GL_DEPTH_TEST);
-
     // Лунки теперь управляются классом Scene, но нам нужны координаты для физики
     const float pocketRadius = 0.08f;
     std::vector<glm::vec3> pockets = {
-        glm::vec3(-0.95f, 0.01f, -0.45f),  // левый нижний угол
-        glm::vec3(-0.95f, 0.01f, 0.45f),   // левый верхний угол
-        glm::vec3(0.95f, 0.01f, -0.45f),   // правый нижний угол
-        glm::vec3(0.95f, 0.01f, 0.45f),    // правый верхний угол
-        glm::vec3(0.0f, 0.01f, -0.45f),    // середина нижней стороны
-        glm::vec3(0.0f, 0.01f, 0.45f)      // середина верхней стороны
+        glm::vec3(-0.95f, 0.01f, -0.45f), // левый нижний угол
+        glm::vec3(-0.95f, 0.01f, 0.45f),  // левый верхний угол
+        glm::vec3(0.95f, 0.01f, -0.45f),  // правый нижний угол
+        glm::vec3(0.95f, 0.01f, 0.45f),   // правый верхний угол
+        glm::vec3(0.0f, 0.01f, -0.45f),   // середина нижней стороны
+        glm::vec3(0.0f, 0.01f, 0.45f)     // середина верхней стороны
     };
 
-    // Отладочная информация
-    bool showDebugInfo = true;
-    float debugTimer = 0.0f;
-
-    while (!window.shouldClose()) {
+    while (!window.shouldClose())
+    {
         window.update();
         window.processInput();
 
         float dt = window.getDeltaTime();
-        debugTimer += dt;
 
         // Управление кием: поворот влево/вправо
-        if (window.isKeyPressed(GLFW_KEY_LEFT)) {
+        if (window.isKeyPressed(GLFW_KEY_LEFT))
+        {
             cue.rotate(90.0f * dt);
         }
-        if (window.isKeyPressed(GLFW_KEY_RIGHT)) {
+        if (window.isKeyPressed(GLFW_KEY_RIGHT))
+        {
             cue.rotate(-90.0f * dt);
         }
 
         // Управление смещением точки удара
-        if (window.isKeyPressed(GLFW_KEY_Q)) {
+        if (window.isKeyPressed(GLFW_KEY_Q))
+        {
             cue.adjustOffset(glm::vec2(-dt, 0.0f));
         }
-        if (window.isKeyPressed(GLFW_KEY_E)) {
+        if (window.isKeyPressed(GLFW_KEY_E))
+        {
             cue.adjustOffset(glm::vec2(dt, 0.0f));
         }
-        if (window.isKeyPressed(GLFW_KEY_R)) {
+        if (window.isKeyPressed(GLFW_KEY_R))
+        {
             cue.adjustOffset(glm::vec2(0.0f, dt));
         }
-        if (window.isKeyPressed(GLFW_KEY_F)) {
+        if (window.isKeyPressed(GLFW_KEY_F))
+        {
             cue.adjustOffset(glm::vec2(0.0f, -dt));
         }
 
         // Зарядка силы удара при зажатом пробеле
-        if (window.isKeyPressed(GLFW_KEY_SPACE)) {
+        if (window.isKeyPressed(GLFW_KEY_SPACE))
+        {
             cue.charge(dt);
-        } else {
+        }
+        else
+        {
             // Отпуск пробела — наносим удар, если сила > 0
-            if (cue.getPower() > 0.01f && !balls[0].isMoving()) {
+            if (cue.getPower() > 0.01f && !balls[0].isMoving())
+            {
                 glm::vec3 impulse = cue.release();
                 glm::vec3 hitPoint = cue.getHitPoint(balls[0].getPosition(), balls[0].getRadius());
                 balls[0].applyImpulse(impulse);
@@ -120,9 +130,12 @@ int main() {
         physics.Update(balls, dt);
 
         // Проверка попадания в лунки
-        for (auto& ball : balls) {
-            for (const auto& pocket : pockets) {
-                if (physics.CheckPocketCollision(ball, pocket, pocketRadius)) {
+        for (auto &ball : balls)
+        {
+            for (const auto &pocket : pockets)
+            {
+                if (physics.CheckPocketCollision(ball, pocket, pocketRadius))
+                {
                     ball.setPosition(glm::vec3(-100.0f, -100.0f, -100.0f));
                     ball.setVelocity(glm::vec3(0.0f));
                     break;
@@ -133,63 +146,59 @@ int main() {
         glm::mat4 view = camera->getViewMatrix();
         glm::mat4 projection = camera->getProjectionMatrix(window.getAspectRatio());
 
-        renderer.SetCameraPos(camera->getPosition());
-
-        
-
         renderer.PrepareFrame(); // Сброс состояний
-
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-        glDisable(GL_BLEND);
 
         // Рендеринг сцены
         scene.Render(renderer, view, projection, camera->getPosition());
 
-       // Отрисовка шаров с текстурами
-        for (size_t i = 0; i < balls.size(); ++i) {
+        // Отрисовка шаров с текстурами
+        for (size_t i = 0; i < balls.size(); ++i)
+        {
             glm::vec3 color = (i == 0) ? glm::vec3(0.0f, 0.0f, 0.0f) : glm::vec3(0.7f, 0.7f, 0.7f);
-        renderer.DrawBall(balls[i].getPosition(), balls[i].getRadius(), color, 
-                 view, projection, balls[i].getRotation(), static_cast<int>(i));
+            renderer.DrawBall(balls[i].getPosition(), balls[i].getRadius(), color,
+                              view, projection, balls[i].getRotation(), static_cast<int>(i));
         }
 
         // Отрисовка кия
-        const Ball& cueBall = balls[0];
+        const Ball &cueBall = balls[0];
 
         // Проверяем, движутся ли шары
         bool ballsMoving = false;
-        for (const auto& ball : balls) {
-            if (ball.isMoving()) {
+        for (const auto &ball : balls)
+        {
+            if (ball.isMoving())
+            {
                 ballsMoving = true;
                 break;
             }
         }
 
-        if (!ballsMoving) {
+        if (!ballsMoving)
+        {
             // Получаем точки кия
             glm::vec3 hitPoint = cue.getHitPoint(cueBall.getPosition(), cueBall.getRadius());
             glm::vec3 cueStart = cue.getCueStart(hitPoint);
             glm::vec3 cueEnd = cue.getCueEnd(hitPoint);
-            
+
             glm::vec3 cueColor = glm::mix(
-                glm::vec3(0.6f, 0.4f, 0.2f),  // коричневый (без силы)
-                glm::vec3(1.0f, 0.2f, 0.2f),  // красный (максимальная сила)
-                cue.getPower()
-            );
-            
+                glm::vec3(0.6f, 0.4f, 0.2f), // коричневый (без силы)
+                glm::vec3(1.0f, 0.2f, 0.2f), // красный (максимальная сила)
+                cue.getPower());
+
             // Рисуем цилиндрический кий
-            renderer.DrawCylinder(cueStart, cueEnd, cue.getRadius(), cueColor, view, projection);
+            renderer.DrawCue(cueStart, cueEnd, cue.getRadius(), cueColor, view, projection);
 
             // Вектор удара
             std::vector<glm::vec3> positions;
-            for (const auto& b : balls) {
+            for (const auto &b : balls)
+            {
                 positions.push_back(b.getPosition());
             }
 
             float tableWidth = 2.0f;
             float tableHeight = 1.0f;
-            glm::vec3 impact = cue.computeImpactPoint(hitPoint, positions, 
-                                                cueBall.getRadius(), tableWidth, tableHeight);
+            glm::vec3 impact = cue.computeImpactPoint(hitPoint, positions,
+                                                      cueBall.getRadius(), tableWidth, tableHeight);
             renderer.DrawLine(hitPoint, impact, {1.0f, 1.0f, 1.0f}, view, projection);
         }
 
